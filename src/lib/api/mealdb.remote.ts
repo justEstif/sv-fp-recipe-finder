@@ -1,33 +1,38 @@
 import { form } from '$app/server';
-import * as R from 'rambda';
+import * as R from 'remeda';
 import * as v from 'valibot';
+import type { Meal } from '$lib/types/mealdb';
 
 const searchSchema = v.object({
 	searchType: v.picklist(['name', 'ingredient']),
-	searchTerm: v.pipe(v.string(), v.length(1))
+	searchTerm: v.pipe(v.string(), v.minLength(1))
 });
 
-const BASE_URL = 'https://www.themealdb.com/api/json/v1/1/';
-//
-const endpointBuilders: Record<string, (term: string) => string> = {
+export type SearchInput = v.InferOutput<typeof searchSchema>;
+
+const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
+
+const endpointBuilders: Record<'name' | 'ingredient', (term: string) => string> = {
 	name: (term) => `${BASE_URL}/search.php?s=${encodeURIComponent(term)}`,
 	ingredient: (term) => `${BASE_URL}/filter.php?i=${encodeURIComponent(term)}`
 };
 
-const buildEndpoint = (searchType: string, searchTerm: string): string =>
-	endpointBuilders[searchType](searchTerm);
+type MealResponse = { meals: Meal[] | null };
 
-const extractMeals = R.pipe(R.prop('meals'), R.defaultTo([]));
+const extractMeals = (data: MealResponse): Meal[] =>
+	R.pipe(data, R.prop('meals'), R.defaultTo([] as Meal[]));
 
+// need to fix the type when filtering between meal and ingredient
 // Fetch and parse JSON
-const fetchJson = async (url: string) => {
+const fetchJson = async <T>(url: string): Promise<T> => {
 	const response = await fetch(url);
 	if (!response.ok) throw new Error('Failed to fetch meals');
-	return response.json();
+	return response.json() as Promise<T>;
 };
 
 export const getSearchResults = form(searchSchema, async (data) => {
-	const endpoint = buildEndpoint(data.searchType, data.searchTerm);
-	const result = await fetchJson(endpoint);
-	return extractMeals(result);
+	const endpoint = endpointBuilders[data.searchType](data.searchTerm);
+	const result = await fetchJson<MealResponse>(endpoint);
+	const meals = extractMeals(result);
+	return meals;
 });

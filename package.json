@@ -41,7 +41,8 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
-		"rambda": "^10.3.4",
+		"es-toolkit": "^1.42.0",
+		"remeda": "^2.32.0",
 		"valibot": "^1.2.0"
 	}
 }
